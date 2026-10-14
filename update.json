@@ -1,9 +1,9 @@
 {
-  "versionName": "0.1.0",
-  "versionCode": 1,
-  "body": "基线版本",
+  "versionName": "1.0.1",
+  "versionCode": 4,
+  "force": true,
+  "body": "临时强制更新验证（验后回滚）",
   "links": [
-    {"platform": "android", "label": "安卓版", "url": "https://github.com/Depolarization/Arco/releases"},
-    {"platform": "windows", "label": "Windows 版", "url": "https://github.com/Depolarization/Arco/releases"}
+    {"platform": "android", "label": "安卓版", "url": "https://github.com/Depolarization/Arco/releases"}
   ]
 }
