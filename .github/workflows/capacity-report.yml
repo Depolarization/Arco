@@ -1,0 +1,122 @@
+# ============================================================================
+# P1 · Supabase DB 容量日报（首发可行性评估 §3 上线前必做 P1）
+# ----------------------------------------------------------------------------
+# 数据来源：每日调 PostgREST RPC `arco_capacity_snapshot()`（migration 007
+#   arco_ops_capacity，SECURITY DEFINER，仅 service_role 可调）。
+#   行1 = db_total（pg_database_size，与 Dashboard「Database size」同口径，
+#   含系统目录 —— 基线实测 11.6 MB，其中业务表仅 ~0.59 MB，故必须用 db_total）。
+# 告警分级（用户裁决：Issue 分级告警，2026-10-13）：
+#   ≥60% ⇒ 建 issue [容量告警:WARN]；≥80% ⇒ 建 issue [容量告警:CRIT] + workflow 红叉。
+# 幂等：同级 open issue 已存在则跳过（不刷屏）；降到阈值下后请手动关闭 issue。
+# 密钥纪律：service_role 只进 GitHub Secrets，绝不入库（工程既有纪律）。
+# 口径说明：免费档上限 500 MB（FREE_TIER_BYTES 可调）。
+# ============================================================================
+name: supabase-capacity-report
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 每日 05:00 UTC（北京时间 13:00）
+  workflow_dispatch: {} # 支持手动触发验证
+
+permissions:
+  issues: write # 建/查 issue 需要
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      FREE_TIER_BYTES: "524288000" # 500 MB（Supabase 免费档 DB 上限）
+      WARN_PCT: "60"
+      CRIT_PCT: "80"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capacity check & alert
+        uses: actions/github-script@v7
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        with:
+          script: |
+            const free = parseInt(process.env.FREE_TIER_BYTES, 10);
+            const warnPct = parseInt(process.env.WARN_PCT, 10);
+            const critPct = parseInt(process.env.CRIT_PCT, 10);
+            const url = process.env.SUPABASE_URL;
+            const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+            // ---- 1. 调容量快照 RPC ----
+            const resp = await fetch(`${url}/rest/v1/rpc/arco_capacity_snapshot`, {
+              method: "POST",
+              headers: {
+                apikey: key,
+                Authorization: `Bearer ${key}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({}),
+            });
+            if (!resp.ok) {
+              core.setFailed(`RPC 调用失败 HTTP ${resp.status}：${await resp.text()}`);
+              return;
+            }
+            const rows = await resp.json();
+            const dbTotal = rows.find(r => r.tbl === "db_total");
+            if (!dbTotal || !(dbTotal.total_bytes > 0)) {
+              core.setFailed(`RPC 返回缺 db_total 行：${JSON.stringify(rows).slice(0, 500)}`);
+              return;
+            }
+            const used = dbTotal.total_bytes;
+            const pct = (used / free) * 100;
+
+            // ---- 2. 汇总输出（Actions Summary 可见）----
+            const mb = b => (b / 1024 / 1024).toFixed(1);
+            const table = rows.map(r =>
+              `| ${r.tbl} | ${mb(r.total_bytes)} MB | ${r.est_rows < 0 ? "未统计" : r.est_rows} |`
+            ).join("\n");
+            const summary =
+              `### Supabase 容量日报\n\n` +
+              `**用量：${mb(used)} MB / ${mb(free)} MB（${pct.toFixed(1)}%）**\n\n` +
+              `| 对象 | 大小 | 估算行数 |\n|---|---|---|\n${table}\n`;
+            core.summary.addRaw(summary).write();
+            console.log(summary);
+
+            // ---- 3. 阈值分级 ----
+            let level = null; // 'WARN' | 'CRIT'
+            if (pct >= critPct) level = "CRIT";
+            else if (pct >= warnPct) level = "WARN";
+
+            if (!level) {
+              console.log(`用量 ${pct.toFixed(1)}% 低于 ${warnPct}% 阈值，无需告警`);
+              return;
+            }
+
+            // ---- 4. 建 issue（同级 open 已存在则跳过，防刷屏）----
+            const title = `[容量告警:${level}] Supabase DB 已用 ${pct.toFixed(1)}%`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const dup = existing.data.find(i => i.title.startsWith(`[容量告警:${level}]`));
+            if (dup) {
+              console.log(`已有同级 open issue #${dup.number}，跳过`);
+              return;
+            }
+            const body =
+              `${summary}\n` +
+              `---\n处置预案（首发评估 §5）：\n` +
+              `- WARN（≥${warnPct}%）：观察；确认无异常增长后可忽略\n` +
+              `- CRIT（≥${critPct}%，连续 2 周）：评估升级 Pro（$25/月）或清理策略\n` +
+              `- 本 issue 不会自动关闭；回落后请手动关闭`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: [level === "CRIT" ? "urgent" : "warning"],
+            });
+            console.log(`已建 issue：${title}`);
+
+            if (level === "CRIT") {
+              core.setFailed(`DB 用量 ${pct.toFixed(1)}% ≥ ${critPct}% CRIT 阈值`);
+            }

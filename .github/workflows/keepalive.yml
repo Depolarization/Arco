@@ -1,0 +1,41 @@
+# ============================================================================
+# P0 · Supabase 保活 cron（首发可行性评估 §3 上线前必做 P0）
+# ----------------------------------------------------------------------------
+# 为什么需要：Supabase 免费档项目 **7 天无活跃自动暂停** ⇒ 全体用户云同步失败。
+# 做什么：每 3 天对 Supabase REST 根路径发一次轻量 GET（0.9–1.3s，实测）。
+# 判定口径（2026-10-13 实测基线）：
+#   - 带 anon key ⇒ 200（服务正常）
+#   - 项目被暂停时 ⇒ 5xx（Supabase 特有 540）/ 连接失败 / 超时
+#   - ⇒ 2xx/3xx/4xx 一律视为「服务在响应 = 保活有效」；仅 5xx/超时视为故障。
+# 故障处置：项目一旦被暂停，保活请求无法自动恢复 —— Actions 红叉后需到
+#   https://supabase.com/dashboard/project/auvlvmmvelfdovwbhlvv 手动 Restore。
+# 密钥纪律：SUPABASE_URL / SUPABASE_ANON_KEY 均为公开信息（App 内置），
+#   但统一放 GitHub Secrets 管理；service_role 绝不出现在本 workflow。
+# 成本：0（GitHub Actions 公共/私有仓库免费额度远超每 3 天一次）。
+# ============================================================================
+name: supabase-keepalive
+
+on:
+  schedule:
+    - cron: "0 4 */3 * *" # 每 3 天 04:00 UTC（北京时间 12:00）
+  workflow_dispatch: {} # 支持手动触发验证
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep-alive request
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/") || code=000
+          echo "Supabase REST => HTTP ${code}"
+          if [ "$code" = "000" ]; then
+            echo "::error::请求超时/连接失败 —— 项目可能已被暂停，请到 Dashboard 手动 Restore"
+            exit 1
+          fi
+          if [ "$code" -ge 500 ]; then
+            echo "::error::Supabase 返回 ${code} —— 项目可能已被暂停，请到 Dashboard 手动 Restore"
+            exit 1
+          fi
+          echo "服务在响应（HTTP ${code}）＝保活有效"
