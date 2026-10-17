@@ -10,6 +10,11 @@
 #
 # 入库：调 RPC `arco_sample_heat`（SECURITY DEFINER，**仅 service_role 可调**）。
 #   幂等：表按 (level_id, sampled_day) 主键，同日重复采样覆盖。
+#   🔴 PostgREST 对 void 函数成功返回 **204 No Content**（不是 200！）⇒ 200/204 都算成功。
+#      2026-10-18 首跑即因此误报失败：数据其实已入库（RPC HTTP=204 被当 200 校验）。
+#
+# 取数稳定性：GitHub 海外 runner → bbs-api.miyoushe.com 链路**偶发连接超时**
+#   （2026-10-18 首跑 30s 超时、重跑即通）⇒ fetch 步骤 3 次重试 + 线性退避。
 #
 # 密钥纪律：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 只进 GitHub Secrets，
 #   **绝不入库、绝不出现在日志**（echo 一律不打印密钥）。
@@ -30,32 +35,33 @@ jobs:
   sample:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch level_detail (no auth)
+      - name: Fetch level_detail (no auth, retry x3)
         id: fetch
         run: |
-          resp=$(curl -sS --max-time 30 \
-            -H "Content-Type: application/json" \
-            -H "Referer: https://www.miyoushe.com/" \
-            -H "x-rpc-language: zh-cn" \
-            -H "x-rpc-client_type: 2" \
-            -H "x-rpc-app_version: 2.115.0" \
-            -H "User-Agent: Mozilla/5.0" \
-            -H "x-rpc-device_id: 00000000-0000-0000-0000-000000000000" \
-            -d '{"region":"cn_gf01","level_id":"7027512957","agg_req_list":[{"api_name":"level_detail"}]}' \
-            "https://bbs-api.miyoushe.com/community/ugc_community/web/api/level/full/info")
+          ok=0
+          for i in 1 2 3; do
+            resp=$(curl -sS --max-time 30 \
+              -H "Content-Type: application/json" \
+              -H "Referer: https://www.miyoushe.com/" \
+              -H "x-rpc-language: zh-cn" \
+              -H "x-rpc-client_type: 2" \
+              -H "x-rpc-app_version: 2.115.0" \
+              -H "User-Agent: Mozilla/5.0" \
+              -H "x-rpc-device_id: 00000000-0000-0000-0000-000000000000" \
+              -d '{"region":"cn_gf01","level_id":"7027512957","agg_req_list":[{"api_name":"level_detail"}]}' \
+              "https://bbs-api.miyoushe.com/community/ugc_community/web/api/level/full/info") || resp=""
+            bytes=$(printf '%s' "$resp" | wc -c)
+            rc=$(printf '%s' "$resp" | jq -r '.retcode // "none"' 2>/dev/null || echo none)
+            echo "第 ${i} 次尝试: 响应字节=${bytes} retcode=${rc}"
+            if [ "$rc" = "0" ] && [ "$bytes" -ge 200 ]; then ok=1; break; fi
+            echo "::warning::第 ${i} 次取数失败（官方偶发超时，海外 runner 链路不稳），退避后重试"
+            sleep $((i * 15))
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::连续 3 次取数失败，本次不写库"
+            exit 1
+          fi
           echo "$resp" > /tmp/level_detail.json
-          bytes=$(printf '%s' "$resp" | wc -c)
-          echo "响应字节=${bytes}"
-          rc=$(printf '%s' "$resp" | jq -r '.retcode // "none"')
-          echo "retcode=${rc}"
-          if [ "$rc" != "0" ]; then
-            echo "::error::官方接口 retcode=${rc}（非 0），本次不写库"
-            exit 1
-          fi
-          if [ "$bytes" -lt 200 ]; then
-            echo "::error::响应过小（${bytes}B），疑似异常，本次不写库"
-            exit 1
-          fi
 
       - name: Parse hot_score / good_rate
         id: parse
@@ -102,7 +108,8 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$body")
           echo "RPC HTTP=${http} 响应=$(cat /tmp/rpc_out.txt)"
-          if [ "$http" != "200" ]; then
+          # 🔴 PostgREST：void 函数成功 = 204（或 200，两种都要接受）
+          if [ "$http" != "200" ] && [ "$http" != "204" ]; then
             echo "::error::RPC 写入失败 HTTP=${http}"
             exit 1
           fi
