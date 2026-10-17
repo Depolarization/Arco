@@ -1,0 +1,112 @@
+# ============================================================================
+# 热度 / 推荐率 每日采样（方案报告 ARCO-热度采样与详情页-方案报告-2026-10-15.md §2）
+# ----------------------------------------------------------------------------
+# 为什么需要：官方 `level/full/info` 的 `level_detail` 只给「当前热度」**单值**
+#   （猛弓实测 hot_score="2860" / good_rate="68%"），**没有任何历史**。
+#   要画「热度趋势图」必须自己每日采样、落库累积 ⇒ 本 workflow 每日跑一次。
+#
+# 数据源鉴权：🔴 **免登录**。实测（2026-10-15）无任何 Cookie，带官方必需的
+#   Referer + x-rpc-* 头 ⇒ HTTP 200 / retcode=0 / 5613 B。
+#
+# 入库：调 RPC `arco_sample_heat`（SECURITY DEFINER，**仅 service_role 可调**）。
+#   幂等：表按 (level_id, sampled_day) 主键，同日重复采样覆盖。
+#
+# 密钥纪律：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 只进 GitHub Secrets，
+#   **绝不入库、绝不出现在日志**（echo 一律不打印密钥）。
+#
+# 诚实性：官方返回 "--"（无数据）⇒ 存 NULL，**不写 0、不写假值**。
+#   解析失败 ⇒ 不写库 + ::warning::，**绝不静默吞掉**。
+#
+# 成本：0（每日 1 个请求 ~5.6 KB + 1 个 RPC；Actions 免费额度内）。
+# ============================================================================
+name: arco-heat-sample
+
+on:
+  schedule:
+    - cron: "5 5 * * *" # 每日 05:05 UTC（北京 13:05）；与 capacity-report 05:00 错开
+  workflow_dispatch: {} # 手动触发验证
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch level_detail (no auth)
+        id: fetch
+        run: |
+          resp=$(curl -sS --max-time 30 \
+            -H "Content-Type: application/json" \
+            -H "Referer: https://www.miyoushe.com/" \
+            -H "x-rpc-language: zh-cn" \
+            -H "x-rpc-client_type: 2" \
+            -H "x-rpc-app_version: 2.115.0" \
+            -H "User-Agent: Mozilla/5.0" \
+            -H "x-rpc-device_id: 00000000-0000-0000-0000-000000000000" \
+            -d '{"region":"cn_gf01","level_id":"7027512957","agg_req_list":[{"api_name":"level_detail"}]}' \
+            "https://bbs-api.miyoushe.com/community/ugc_community/web/api/level/full/info")
+          echo "$resp" > /tmp/level_detail.json
+          bytes=$(printf '%s' "$resp" | wc -c)
+          echo "响应字节=${bytes}"
+          rc=$(printf '%s' "$resp" | jq -r '.retcode // "none"')
+          echo "retcode=${rc}"
+          if [ "$rc" != "0" ]; then
+            echo "::error::官方接口 retcode=${rc}（非 0），本次不写库"
+            exit 1
+          fi
+          if [ "$bytes" -lt 200 ]; then
+            echo "::error::响应过小（${bytes}B），疑似异常，本次不写库"
+            exit 1
+          fi
+
+      - name: Parse hot_score / good_rate
+        id: parse
+        run: |
+          BASE='.data.resp_map.level_detail.data.level_detail_response.level_info'
+          raw_hot=$(jq -r "${BASE}.hot_score // \"--\"" /tmp/level_detail.json)
+          raw_good=$(jq -r "${BASE}.good_rate // \"--\"" /tmp/level_detail.json)
+          echo "官方原值 hot_score=${raw_hot} good_rate=${raw_good}"
+          # "--"（官方无数据）⇒ null；否则解析为数值
+          if [ "$raw_hot" = "--" ] || ! printf '%s' "$raw_hot" | grep -Eq '^[0-9]+$'; then
+            hot=null; echo "::warning::hot_score 非数值（${raw_hot}）⇒ 存 NULL"
+          else
+            hot=$raw_hot
+          fi
+          # "68%" ⇒ 68.00；"68.5%" ⇒ 68.50；"--" 或其它格式 ⇒ null
+          good=$(printf '%s' "$raw_good" | sed -n 's/^\([0-9.]\+\)%$/\1/p')
+          if [ -n "$good" ] && printf '%s' "$good" | grep -Eq '^[0-9]+(\.[0-9]+)?$'; then
+            good=$good
+          else
+            good=null; echo "::warning::good_rate 非百分比（${raw_good}）⇒ 存 NULL"
+          fi
+          echo "解析后 hot=${hot} good=${good}"
+          echo "hot=${hot}"   >> "$GITHUB_OUTPUT"
+          echo "good=${good}" >> "$GITHUB_OUTPUT"
+          echo "raw_hot=${raw_hot}" >> "$GITHUB_OUTPUT"
+          echo "raw_good=${raw_good}" >> "$GITHUB_OUTPUT"
+
+      - name: Store via RPC
+        run: |
+          hot=${{ steps.parse.outputs.hot }}
+          good=${{ steps.parse.outputs.good }}
+          body=$(jq -cn \
+            --argjson hot "$hot" \
+            --argjson good "$good" \
+            --arg rawh "${{ steps.parse.outputs.raw_hot }}" \
+            --arg rawg "${{ steps.parse.outputs.raw_good }}" \
+            --arg src "gh" \
+            '{p_hot: $hot, p_good: $good, p_raw_hot: $rawh, p_raw_good: $rawg, p_source: $src}')
+          echo "RPC body=${body}"
+          http=$(curl -sS -o /tmp/rpc_out.txt -w '%{http_code}' --max-time 30 \
+            -X POST "${SUPABASE_URL}/rest/v1/rpc/arco_sample_heat" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+          echo "RPC HTTP=${http} 响应=$(cat /tmp/rpc_out.txt)"
+          if [ "$http" != "200" ]; then
+            echo "::error::RPC 写入失败 HTTP=${http}"
+            exit 1
+          fi
+          echo "::notice::热度采样入库完成（hot=${{ steps.parse.outputs.hot }} good=${{ steps.parse.outputs.good }}）"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
