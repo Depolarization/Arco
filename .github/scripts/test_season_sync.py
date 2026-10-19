@@ -35,9 +35,29 @@ RESOURCES = os.path.join(
     "jvmSharedTest",
     "resources",
 )
-HTML_FIXTURE = os.path.join(RESOURCES, "ann-21900-season-raw.html")
-LIST_FIXTURE = os.path.join(RESOURCES, "annlist.json")
-CONTENT_FIXTURE = os.path.join(RESOURCES, "anncontent.json")
+
+# 🔴 夹具双位置查找（2026-10-19 线上首跑踩到）：
+#    本 workflow 跑在**运维线 main** 上，而 main 里**没有源码**（只有 update.json + workflows），
+#    所以 `shared/src/jvmSharedTest/resources/` 在 CI 里根本不存在 —— 首跑就是因此红的。
+#    修法 = 夹具随脚本一起放到 `.github/scripts/fixtures/`（自包含，不依赖源码线）；
+#    本地源码树里仍优先用 shared 那份（两边内容必须一致，由 test_fixture_copies_are_identical 兜底）。
+_LOCAL_RESOURCES = RESOURCES
+_BUNDLED_FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+
+
+def _fixture(name: str) -> str:
+    for base in (_BUNDLED_FIXTURES, _LOCAL_RESOURCES):
+        path = os.path.join(base, name)
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError(
+        f"夹具 {name} 在 {_BUNDLED_FIXTURES} 与 {_LOCAL_RESOURCES} 都不存在"
+    )
+
+
+HTML_FIXTURE = _fixture("ann-21900-season-raw.html")
+LIST_FIXTURE = _fixture("annlist.json")
+CONTENT_FIXTURE = _fixture("anncontent.json")
 
 # 线上 arco_seasons 实测 ground truth
 GT_WHOLE_START = 1790118000  # 2026-09-23 07:00:00 +08
@@ -319,6 +339,26 @@ class CliTest(unittest.TestCase):
         self.assertEqual(1, proc.returncode)
         self.assertIn("SUPABASE_URL", proc.stdout)
         self.assertNotIn("super-secret-key-value", proc.stdout + proc.stderr)
+
+
+class FixtureIntegrityTest(unittest.TestCase):
+    """🔴 两份夹具必须逐字节一致：源码树一份、`.github/scripts/fixtures/` 一份。
+
+    起因：workflow 跑在运维线 main 上，那里没有源码树，只能用随脚本打包的那份；
+    而本地开发/源码线用 shared 那份。若只改一边，CI 用旧夹具会「测试绿但解析已坏」。
+    """
+
+    def test_fixture_copies_are_identical(self):
+        if not os.path.isdir(_LOCAL_RESOURCES):
+            self.skipTest("当前环境没有源码树（运维线 main），跳过一致性校验")
+        for name in ("annlist.json", "anncontent.json", "ann-21900-season-raw.html"):
+            src = os.path.join(_LOCAL_RESOURCES, name)
+            dst = os.path.join(_BUNDLED_FIXTURES, name)
+            with open(src, "rb") as f:
+                a = f.read()
+            with open(dst, "rb") as f:
+                b = f.read()
+            self.assertEqual(a, b, f"{name} 两份夹具内容不一致：请同步 .github/scripts/fixtures/")
 
 
 if __name__ == "__main__":
