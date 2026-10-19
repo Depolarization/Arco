@@ -1,0 +1,76 @@
+# ============================================================================
+# 赛季自动维护（服务端第二兜底）
+# ----------------------------------------------------------------------------
+# 为什么需要：`arco_seasons` 是全局表，赛季数据过去**只由玩家客户端**在同步时上报
+#   （客户端抓官方公告 → 解析赛程 → 上传）。用户不开客户端 ⇒ 新赛季永远进不了云端。
+#   本 workflow 用 service_role 走同一条链路，形成**双兜底**：
+#     · 玩家客户端：日常同步时上报（玩家活跃才有）
+#     · 本 workflow ：与玩家无关，官方一发公告就入库（玩家全不活跃也有）
+#   两边写同一张表、同一个 `season_key`，靠 `ON CONFLICT DO UPDATE` 幂等；
+#   写入一律过守卫触发器（见 .agent_work/season-authority.sql），任一侧写歪了都会被拒。
+#
+# 为什么每 30 分钟跑一次（cron: */30 * * * *）：
+#   · 官方发赛季公告的时点是**不可预测**的（实测 7.1 赛季公告与版本更新说明不同日发布），
+#     而新赛季公告一般只在赛季结束前一两天才出 ⇒ 轮询周期决定「最多错过多久」；
+#   · 30 分钟一轮 ⇒ 赛季开始后 **最迟半小时**入库，成本只是 1 次轻量 REST 查询（约 48 轮/天，
+#     免费额度内；见下方早退判据，绝大多数轮询连公告接口都不请求）。
+#   · 不是 5 分钟：省不了多少额度，却把失败重试窗口压得过窄，没有必要。
+#
+# 早退判据（省额度，同时**不会**「拉早了就不再来」）：
+#   先查最晚一季的 whole_end；若 `now < whole_end - 6h`，说明当前赛季还在跑，
+#   官方不可能有下一季公告 ⇒ 打印「本轮跳过」并 **exit 0**（绿，不刷红）。
+#   🔴 早退不是终态判定：cron 每 30 分钟会再来一次，一旦进入赛季结束前 6 小时窗口，
+#      下一轮就会真的去抓公告。所以「这一轮跳过」永远不会导致「永远不拉」。
+#
+# 退出码语义（脚本定义）：
+#   0 = 已写入 / 本轮无需动 / 官方还没发公告（软失败，不刷红，等下一轮）
+#   1 = 真异常（缺 secrets、防御校验不过、RPC 失败、网络异常）⇒ 需要人看
+#
+# 步骤顺序：**先跑离线单测，测试红就不许写库**。单测用仓库夹具
+#   （shared/src/jvmSharedTest/resources/ 下 2026-10-08 官方接口实证响应）断言
+#   ground truth：whole_start=1790118000 / whole_end=1793743200 / ann_id=21900。
+#
+# 密钥纪律：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 只从 GitHub Secrets 注入，
+#   **绝不出现在日志**（脚本只打印变量名，连长度都不打）。
+# 成本：约 0（每轮 1 次 REST 查询，跳过轮不发公告请求；早退时 0 次外网请求）。
+# ============================================================================
+name: arco-season-sync
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # 每 30 分钟一轮；与玩家客户端上报形成双兜底
+  workflow_dispatch: {} # 支持手动触发验证
+
+permissions:
+  contents: read
+
+concurrency:
+  group: season-sync
+  cancel-in-progress: false # 上一轮还没跑完就别开新一轮，避免重复写
+
+jobs:
+  sync:
+    name: 抓官方公告 → 解析 → 写 arco_seasons
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 离线单测（红了就不许写库）
+        working-directory: .github/scripts
+        run: |
+          echo "::group::unittest discover"
+          python -m unittest discover -v
+          echo "::endgroup::"
+          echo "::notice::解析口径自检通过（ground truth: whole_start=1790118000 whole_end=1793743200 ann_id=21900）"
+
+      - name: 同步赛季
+        working-directory: .github/scripts
+        run: python season_sync.py sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
