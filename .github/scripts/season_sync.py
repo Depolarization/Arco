@@ -109,9 +109,24 @@ HTTP_ATTEMPTS = 3
 
 #: 仓库内的离线夹具（`parse` 子命令没给 --list 时的兜底；单测也读它）
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_LIST_FIXTURE = os.path.join(
-    REPO_ROOT, "shared", "src", "jvmSharedTest", "resources", "annlist.json"
-)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 🔴 夹具双位置：workflow 跑在运维线 main 上，那里**没有源码树**（只有 update.json + workflows），
+#    所以 `shared/.../resources/` 在 CI 里不存在 ⇒ 夹具随脚本打包一份到 `.github/scripts/fixtures/`。
+_BUNDLED_FIXTURES = os.path.join(_SCRIPT_DIR, "fixtures")
+_SOURCE_RESOURCES = os.path.join(REPO_ROOT, "shared", "src", "jvmSharedTest", "resources")
+
+
+def _default_list_fixture() -> str:
+    for base in (_BUNDLED_FIXTURES, _SOURCE_RESOURCES):
+        path = os.path.join(base, "annlist.json")
+        if os.path.exists(path):
+            return path
+    # 都不存在就返回 bundled 路径：让调用方拿到明确的 FileNotFoundError 而不是空字符串。
+    return os.path.join(_BUNDLED_FIXTURES, "annlist.json")
+
+
+DEFAULT_LIST_FIXTURE = _default_list_fixture()
 
 
 class SeasonValidationError(Exception):
