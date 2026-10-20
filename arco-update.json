@@ -1,12 +1,10 @@
 {
-  "versionName": "1.0.1",
-  "versionCode": 19,
+  "versionName": "1.0.0",
+  "versionCode": 3,
   "force": false,
-  "body": "1.0.1：修复换账号后整页重建与账号数据串号；天梯榜改为服务端全量重算初始化、后续由客户端上报；云端备份与「参与端外天梯」开关改为按账号独立，并在进入「我的」页时与云端对账；段位改为按需补算，不再依赖同步；端外天梯、段位、记录页空态统一；关于页文案精简。",
+  "body": "1.0.0 正式首发：游玩统计 · 逐局记录 · 段位推算 · 云端备份与换机恢复 · 数据导出导入 · 同玩者查询。测试版数据已清档，本地数据自动继承；如打不开下载链接请联系分发者。",
   "links": [
-    {"platform": "android", "label": "安卓版下载（镜像）", "url": "https://ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.1/Arco-1.0.1.apk"},
-    {"platform": "android", "label": "安卓版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.1/Arco-1.0.1.apk"},
-    {"platform": "windows", "label": "Windows 版下载（镜像）", "url": "https://ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.1/Arco-1.0.1-windows-x64.zip"},
-    {"platform": "windows", "label": "Windows 版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.1/Arco-1.0.1-windows-x64.zip"}
+    {"platform": "android", "label": "安卓版下载（镜像）", "url": "https://ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.0/Arco-1.0.0.apk"},
+    {"platform": "android", "label": "安卓版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.0/Arco-1.0.0.apk"}
   ]
 }
