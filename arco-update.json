@@ -1,16 +1,16 @@
 {
-  "versionName": "1.0.2",
-  "versionCode": 26,
+  "versionName": "1.0.3",
+  "versionCode": 57,
   "force": false,
-  "body": "1.0.2：修复多账号数据串号——本地串号数据自动剪枝自愈、云端恢复防回灌；更新后请保持相关账号已登录，逐个账号下拉刷新一次即可自愈。另含：段位页与排行榜分数一致、记录页长分数显示修复、数据导入校验账号对应性、同步探测失败自动降级为全量同步。本次下载链接已更换为实测更快的镜像，原镜像过慢请选「高速」或「备用」。",
+  "body": "1.0.3：修复部分账号点开玩家详情对话框即闪退的问题（最近一局就在当天时触发）；修复扫码取景被拉伸、缩放异常的问题；修复系统字体放大时段位页「历届赛季」名称与分数被不合理省略的问题，改为上下两行并放大徽章。Windows 版与安卓版功能一致，均可在下方链接中选择高速或备用线路下载。",
   "links": [
-    {"platform": "android", "label": "安卓版下载（高速）", "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2.apk"},
-    {"platform": "android", "label": "安卓版下载（备用1）", "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2.apk"},
-    {"platform": "android", "label": "安卓版下载（备用2）", "url": "https://gh-proxy.com/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2.apk"},
-    {"platform": "android", "label": "安卓版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2.apk"},
-    {"platform": "windows", "label": "Windows 版下载（高速）", "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2-windows-x64.zip"},
-    {"platform": "windows", "label": "Windows 版下载（备用1）", "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2-windows-x64.zip"},
-    {"platform": "windows", "label": "Windows 版下载（备用2）", "url": "https://gh-proxy.com/https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2-windows-x64.zip"},
-    {"platform": "windows", "label": "Windows 版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.2/Arco-1.0.2-windows-x64.zip"}
+    {"platform": "android", "label": "安卓版下载（高速）", "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3.apk"},
+    {"platform": "android", "label": "安卓版下载（备用1）", "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3.apk"},
+    {"platform": "android", "label": "安卓版下载（备用2）", "url": "https://gh-proxy.com/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3.apk"},
+    {"platform": "android", "label": "安卓版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3.apk"},
+    {"platform": "windows", "label": "Windows 版下载（高速）", "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3-windows-x64-20261101.zip"},
+    {"platform": "windows", "label": "Windows 版下载（备用1）", "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3-windows-x64-20261101.zip"},
+    {"platform": "windows", "label": "Windows 版下载（备用2）", "url": "https://gh-proxy.com/https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3-windows-x64-20261101.zip"},
+    {"platform": "windows", "label": "Windows 版下载（官方）", "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.3/Arco-1.0.3-windows-x64-20261101.zip"}
   ]
 }
