@@ -97,7 +97,18 @@ WALL_CLOCK = re.compile(r"(\d{4})\D(\d{1,2})\D(\d{1,2})[ T](\d{1,2}):(\d{2})(?::
 KIND_BY_LABEL = {"准备": "prep", "游玩": "play", "展示": "show"}
 
 # ── 防御校验阈值（与 season-authority.sql 的守卫触发器同口径）──
-SEAM_TOLERANCE_SEC = 60  # 相邻赛季 whole_start == 上一季 whole_end（实测 gap=0），留 ±60s
+# 🔴 2026-11-04 事故修正（覆音赛季 ann_id=21993 连续两次拒绝写入）：
+#   原校验假设「相邻赛季无缝衔接（gap=0）」，容差 ±60s。实测官方 7.1→7.2 之间有
+#   1 小时停服维护间隔（霄练 11-04 06:00 结束 → 覆音 07:00 起）⇒ +3600s 被拒，
+#   连续两个 cron 周期失败、云端缺 7.2。
+#   新语义：**顺序单调 + 有界间隙** —— 只拒绝真正危险的解析错位：
+#     · 倒挂重叠：NEW 起点 早于 上一季终点 超过取整容差（-60s）⇒ 拒
+#     · 间隙过大：NEW 起点 晚于 上一季终点 超过 3 天 ⇒ 拒（正常维护为小时级；3 天远小于
+#       20~70 天的赛季跨度，几十天级的字段错位仍会被拦下）
+#   SQL 守卫触发器（arco_seasons_guard）只卡「与其它赛季重叠」，无衔接校验 ⇒ 本脚本
+#   放行后写入不会被数据库拒绝，两端口径兼容。
+SEAM_OVERLAP_TOLERANCE_SEC = 60
+MAX_SEASON_GAP_SEC = 3 * 86400
 MIN_SEASON_SPAN_SEC = 20 * 86400
 MAX_SEASON_SPAN_SEC = 70 * 86400
 #: 早退阈值：距当前赛季结束还早于此值 ⇒ 本轮不做任何写操作（省额度）。
@@ -352,10 +363,17 @@ def validate_season(season, latest_whole_end):
 
     if latest_whole_end is not None:
         gap = whole_start - latest_whole_end
-        if abs(gap) > SEAM_TOLERANCE_SEC:
+        if gap < -SEAM_OVERLAP_TOLERANCE_SEC:
             raise SeasonValidationError(
-                "整段起点与上一季终点不衔接：解析出的 whole_start=%d，云端最晚一季 whole_end=%d，差 %d 秒"
-                "（实测赛季无缝衔接，容差 ±%d 秒）" % (whole_start, latest_whole_end, gap, SEAM_TOLERANCE_SEC)
+                "与上一季窗口重叠：解析出的 whole_start=%d 早于云端最晚一季 whole_end=%d 达 %d 秒"
+                "（允许的官方取整容差 ±%d 秒）"
+                % (whole_start, latest_whole_end, -gap, SEAM_OVERLAP_TOLERANCE_SEC)
+            )
+        if gap > MAX_SEASON_GAP_SEC:
+            raise SeasonValidationError(
+                "与上一季间隙过大：解析出的 whole_start=%d 晚于云端最晚一季 whole_end=%d 达 %d 秒"
+                "（上限 %d 秒 = 3 天；正常停服维护为小时级，过大的间隙视为解析错位）"
+                % (whole_start, latest_whole_end, gap, MAX_SEASON_GAP_SEC)
             )
 
     span = whole_end - whole_start
