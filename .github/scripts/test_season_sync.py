@@ -202,12 +202,29 @@ class ValidationTest(unittest.TestCase):
         season_sync.validate_season(self.season, self.season["whole_start"])
 
     def test_seam_mismatch_is_rejected(self):
-        """故意让 whole_start 与云端最晚一季 whole_end 不等 ⇒ 必须抛。"""
+        """倒挂：解析出的起点比云端上一季终点早 5 天（字段错位的典型形态）⇒ 必须抛。"""
         latest = self.season["whole_end"] - 5 * 86400  # 云端上一季还剩 5 天才结束
         tampered = dict(self.season)  # whole_start 保持 1790118000
         with self.assertRaises(season_sync.SeasonValidationError) as ctx:
             season_sync.validate_season(tampered, latest)
-        self.assertIn("不衔接", str(ctx.exception))
+        self.assertIn("重叠", str(ctx.exception))
+
+    def test_maintenance_gap_is_accepted(self):
+        """🔴 2026-11-04 覆音事故回归测试：官方停服维护造成的 +1h 间隙必须放行。
+
+        实测：霄练 11-04 06:00 结束 → 覆音 07:00 起（gap=+3600s），
+        旧校验「无缝 ±60s」连续两个 cron 周期拒绝写入、云端缺 7.2。
+        """
+        season_sync.validate_season(dict(self.season), self.season["whole_start"] - 3600)
+        # 半天级维护（+12h）同样放行
+        season_sync.validate_season(dict(self.season), self.season["whole_start"] - 12 * 3600)
+
+    def test_oversized_gap_is_rejected(self):
+        """间隙超过 3 天 ⇒ 解析错位，必须抛（正常维护是小时级，不是天级）。"""
+        latest = self.season["whole_start"] - 10 * 86400
+        with self.assertRaises(season_sync.SeasonValidationError) as ctx:
+            season_sync.validate_season(dict(self.season), latest)
+        self.assertIn("间隙过大", str(ctx.exception))
 
     def test_seam_within_tolerance_is_accepted(self):
         """±60s 容差内必须放行（时钟/官方文案抖动不算异常）。"""
