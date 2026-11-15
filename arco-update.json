@@ -2,27 +2,37 @@
   "versionName": "1.0.5",
   "versionCode": 62,
   "force": true,
-  "body": "1.0.5（强制更新）：云端可用性全面加固——换票改为客户端直连自查、失败自动重试，服务端高峰期繁忙时不再卡死同步入口；内置加密域名解析，部分网络环境下无法连接云端服务的问题显著改善；同步与天梯失败时会明确提示该做什么（检查网络、重新扫码或稍后自动重试），不再静默无提示；修复多账号切换后段位分数迟迟不上榜、以及排行榜排序错误的问题。本次为强制更新，需更新后才能继续使用。Windows 版与安卓版功能一致，均可在下方链接中选择官方或备用线路下载。",
+  "body": "1.0.5（强制更新）：云端可用性全面加固——换票改为客户端直连自查、失败自动重试，服务端高峰期繁忙时不再卡死同步入口；内置加密域名解析，部分网络环境下无法连接云端服务的问题显著改善；同步与天梯失败时会明确提示该做什么（检查网络、重新扫码或稍后自动重试），不再静默无提示；修复多账号切换后段位分数迟迟不上榜、以及排行榜排序错误的问题。本次为强制更新，需更新后才能继续使用。官方链接为 GitHub 直链，国内较慢；下载缓慢请用「备用线路」条目中的镜像地址（复制到浏览器打开）。",
   "links": [
     {
       "platform": "android",
-      "label": "安卓版下载（官方）",
+      "label": "安卓版下载（官方 GitHub 直链）",
       "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
     },
     {
       "platform": "android",
-      "label": "安卓版下载（备用线路）",
+      "label": "安卓版备用线路①（复制到浏览器打开）：ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk",
       "url": "https://ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
     },
     {
+      "platform": "android",
+      "label": "安卓版备用线路②（复制到浏览器打开）：githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk",
+      "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
+    },
+    {
       "platform": "windows",
-      "label": "Windows 版下载（官方）",
+      "label": "Windows 版下载（官方 GitHub 直链）",
       "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261115.zip"
     },
     {
       "platform": "windows",
-      "label": "Windows 版下载（备用线路）",
+      "label": "Windows 版备用线路①（复制到浏览器打开）：ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261115.zip",
       "url": "https://ghproxy.net/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261115.zip"
+    },
+    {
+      "platform": "windows",
+      "label": "Windows 版备用线路②（复制到浏览器打开）：githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261115.zip",
+      "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261115.zip"
     }
   ]
 }
