@@ -1,54 +1,33 @@
 {
-  "versionName": "1.0.5",
-  "versionCode": 63,
-  "force": true,
-  "publishedAt": "2026-11-16T07:04:25Z",
+  "versionName": "1.1.0",
+  "versionCode": 66,
+  "force": false,
+  "publishedAt": "2026-11-19T10:08:25Z",
   "keyId": "k1",
-  "body": "1.0.5（强制更新）：云端可用性全面加固——换票改为客户端直连自查、失败自动重试，服务端高峰期繁忙时不再卡死同步入口；内置加密域名解析，部分网络环境下无法连接云端服务的问题显著改善；同步与天梯失败时会明确提示该做什么（检查网络、重新扫码或稍后自动重试），不再静默无提示；修复多账号切换后段位分数迟迟不上榜、以及排行榜排序错误的问题。本次为强制更新，需更新后才能继续使用。官方链接为 GitHub 直链，国内较慢；下载缓慢请用「备用线路」条目中的镜像地址（复制到浏览器打开）。",
+  "body": "1.1.0：后端全栈极简改造与云端恢复可靠性升级。云端换票升级为纯签名服务，链路更轻更稳；修复首次登录/本机无本人战绩时增量恢复永远补不回 KDA 的问题，改为强制全量恢复，同玩占位行不再被误计入；战绩存储移除冗余原始字段、改用来源标记（官方/云端/同玩），本地库升级，跨账号同秒同 KDA 的对局不再被误删；备份格式升级，旧版本会干净拒绝新备份以防数据错乱，新版本仍可导入旧备份。官方链接为 GitHub 直链，国内较慢；下载缓慢请用「备用线路」条目中的镜像地址（复制到浏览器打开）。本次为常规更新，Windows 版已停止交付。",
   "assets": [
     {
       "platform": "android",
-      "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk",
-      "sha256": "dbf6fe3799d93756d7c3ebb3a50f9107dd514cac00476a269090498ec0438c2d",
-      "size": 5048518
-    },
-    {
-      "platform": "windows",
-      "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip",
-      "sha256": "22bd48fec0419b9926e9bd821358b9b19a4cbd89d24a5ceecbc70f408e0758a8",
-      "size": 72560895
+      "url": "https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk",
+      "sha256": "bc4e31a264e81603873c09396c13033228617b649ff523e4554d15a44cb7a29a",
+      "size": 5064902
     }
   ],
   "links": [
     {
       "platform": "android",
-      "label": "安卓版备用线路①（复制到浏览器打开）：githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk",
-      "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
+      "label": "安卓版备用线路①（复制到浏览器打开）：githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk",
+      "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk"
     },
     {
       "platform": "android",
-      "label": "安卓版备用线路②（复制到浏览器打开）：ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk",
-      "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
+      "label": "安卓版备用线路②（复制到浏览器打开）：ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk",
+      "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk"
     },
     {
       "platform": "android",
       "label": "安卓版下载（官方 GitHub 直链）",
-      "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5.apk"
-    },
-    {
-      "platform": "windows",
-      "label": "Windows 版备用线路①（复制到浏览器打开）：githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip",
-      "url": "https://githubproxy.cc/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip"
-    },
-    {
-      "platform": "windows",
-      "label": "Windows 版备用线路②（复制到浏览器打开）：ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip",
-      "url": "https://ghfast.top/https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip"
-    },
-    {
-      "platform": "windows",
-      "label": "Windows 版下载（官方 GitHub 直链）",
-      "url": "https://github.com/Depolarization/Arco/releases/download/v1.0.5/Arco-1.0.5-windows-x64-20261116.zip"
+      "url": "https://github.com/Depolarization/Arco/releases/download/v1.1.0/Arco-1.1.0.apk"
     }
   ]
 }
